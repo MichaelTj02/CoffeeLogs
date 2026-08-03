@@ -1,8 +1,3 @@
-// Shared display and form helpers, used by every page.
-
-// An empty <input> yields "", and Pydantic rejects "" for `date | None` / `float | None`
-// with a 422. Optional fields must send null. This is the most common source of mystery
-// 422s in this stack, so all three pages go through these helpers.
 export function blankToNull(value) {
   if (typeof value !== "string") return value ?? null;
   const trimmed = value.trim();
@@ -41,7 +36,6 @@ export function formatPrice(value) {
   return `$${Number(value).toFixed(2)}`;
 }
 
-// Brew ratio, the number you actually compare between attempts.
 export function brewRatio(dose, yieldGrams) {
   if (!dose || !yieldGrams) return null;
   return `1:${(yieldGrams / dose).toFixed(1)}`;

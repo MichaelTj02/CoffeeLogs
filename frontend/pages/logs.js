@@ -26,9 +26,7 @@ export default function Logs() {
     load();
   }, [load]);
 
-  // Optimistic: flip the star immediately, then reconcile. A toggle that waits for a
-  // round-trip before painting reads as broken. Re-sorting is deferred to the reload so
-  // the card does not jump out from under the cursor mid-click.
+  // Optimistic: the star flips before the request lands, and rolls back if it fails.
   async function handleToggleFavourite(bean) {
     const next = !bean.is_favourite;
     setBusyId(bean.id);

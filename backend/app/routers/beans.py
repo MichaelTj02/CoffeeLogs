@@ -1,5 +1,3 @@
-"""Bean endpoints."""
-
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
@@ -16,7 +14,6 @@ def list_beans(
     limit: int | None = Query(default=None, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
-    """All beans, favourites first then newest first."""
     return crud.list_beans(db, limit=limit)
 
 
@@ -27,7 +24,6 @@ def create_bean(data: BeanCreate, db: Session = Depends(get_db)):
 
 @router.get("/{bean_id}", response_model=BeanDetail)
 def get_bean(bean_id: int, db: Session = Depends(get_db)):
-    """Bean with its brew methods, each carrying its attempts."""
     get_bean_or_404(db, bean_id)
     return crud.get_bean_detail(db, bean_id)
 
@@ -38,10 +34,8 @@ def set_favourite(bean_id: int, data: FavouriteUpdate, db: Session = Depends(get
     return crud.set_bean_favourite(db, bean, data.is_favourite)
 
 
-# No response_model, and the handler returns None — a 204 with a body is a protocol
-# violation.
+# No response_model and a None return: a 204 with a body is a protocol violation.
 @router.delete("/{bean_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def delete_bean(bean_id: int, db: Session = Depends(get_db)) -> None:
-    """Cascades to the bean's methods and their attempts."""
     bean = get_bean_or_404(db, bean_id)
     crud.delete_bean(db, bean)

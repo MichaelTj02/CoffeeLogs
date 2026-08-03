@@ -10,7 +10,7 @@ const EMPTY = {
   notes: "",
 };
 
-// One instance per method section, so each keeps its own independent form state.
+// One instance per method section, so each method keeps its own form state.
 export default function AttemptForm({ onSubmit }) {
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
@@ -25,8 +25,6 @@ export default function AttemptForm({ onSubmit }) {
     setSaving(true);
     setError(null);
 
-    // Blank brewed_at goes over as null and the API defaults it to now. Blank rating goes
-    // over as null rather than "", which would 422.
     const payload = {
       brewed_at: blankToNull(form.brewed_at),
       dose_grams: numberOrNull(form.dose_grams),

@@ -3,7 +3,6 @@ import { useRouter } from "next/router";
 
 export default function Navbar() {
   const { pathname } = useRouter();
-  // Bean detail pages live under the Logs section, so highlight Logs there too.
   const logsActive = pathname === "/logs" || pathname.startsWith("/beans");
 
   return (

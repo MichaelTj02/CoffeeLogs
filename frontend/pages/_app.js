@@ -1,5 +1,4 @@
-// Global CSS may only be imported here — importing it from a page is a hard build error
-// in the pages router.
+// Global CSS may only be imported here; importing it from a page is a hard build error.
 import "@/styles/globals.css";
 
 import Head from "next/head";

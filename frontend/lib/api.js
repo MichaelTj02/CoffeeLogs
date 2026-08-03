@@ -1,11 +1,7 @@
-// NEXT_PUBLIC_ is required for the value to reach browser code, and it is inlined at
-// build time rather than read at runtime. The fallback keeps `next build` working with
-// nothing configured.
+// NEXT_PUBLIC_ is required to reach browser code, and is inlined at build time, not runtime.
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-// FastAPI returns two different error shapes: a plain string for HTTPException, but an
-// array of {loc, msg, type} objects for 422 validation errors. Without this, every
-// validation failure renders as "[object Object]".
+// FastAPI's `detail` is a string for HTTPException but an array of objects for 422s.
 function messageFromDetail(detail, fallback) {
   if (!detail) return fallback;
   if (typeof detail === "string") return detail;
@@ -38,8 +34,7 @@ async function request(path, options = {}) {
     throw error;
   }
 
-  // A 204 has no body; calling res.json() on it throws "Unexpected end of JSON input".
-  // Every delete goes through here.
+  // A 204 has no body, so res.json() would throw.
   if (res.status === 204) return null;
   return res.json();
 }

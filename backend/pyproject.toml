@@ -5,8 +5,7 @@ exclude = [".venv", "__pycache__"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "C4"]
-# B008 flags "function call in default argument", which is exactly FastAPI's
-# `db: Session = Depends(get_db)` on every endpoint.
+# B008 would flag FastAPI's `db: Session = Depends(get_db)` default on every endpoint.
 ignore = ["B008"]
 
 [tool.pytest.ini_options]

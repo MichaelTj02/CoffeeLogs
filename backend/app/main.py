@@ -1,5 +1,3 @@
-"""FastAPI app assembly."""
-
 import os
 
 from fastapi import FastAPI
@@ -15,12 +13,8 @@ app = FastAPI(
     description="Track coffee beans, the methods you brew them with, and every attempt.",
 )
 
-# Both localhost and 127.0.0.1 — they are distinct origins to the browser, and Next prints
-# one while people often type the other.
-#
-# PATCH (favourite toggle) and DELETE are not "simple requests", so the browser sends an
-# OPTIONS preflight first. Without this middleware, GETs would work while the star and
-# delete silently failed.
+# PATCH and DELETE are preflighted, so leaving them out of allow_methods breaks the star
+# toggle and delete while GETs keep working.
 origins = [
     origin.strip()
     for origin in os.getenv("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",")

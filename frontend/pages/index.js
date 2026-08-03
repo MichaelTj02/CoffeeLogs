@@ -50,8 +50,7 @@ export default function Home() {
     setError(null);
     setSaved(null);
 
-    // Optional fields must go over as null, not "". An empty date or number input yields
-    // "", which the API rejects with a 422.
+    // Optional fields must send null, not "": Pydantic 422s on "" for date/number fields.
     const payload = {
       name: blankToNull(form.name),
       roaster: blankToNull(form.roaster),

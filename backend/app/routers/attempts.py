@@ -1,5 +1,3 @@
-"""Brew attempt endpoints — the individual brews under one method."""
-
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
@@ -13,7 +11,6 @@ router = APIRouter(tags=["brew attempts"])
 
 @router.get("/methods/{method_id}/attempts", response_model=list[BrewAttemptRead])
 def list_attempts(method_id: int, db: Session = Depends(get_db)):
-    """Newest first."""
     get_method_or_404(db, method_id)
     return crud.list_attempts(db, method_id)
 

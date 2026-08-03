@@ -1,10 +1,3 @@
-"""Brew method endpoints.
-
-Methods are created under their bean but addressed by their own id afterwards — ids are
-globally unique, so nesting deletes three levels deep would add path noise and redundant
-validation for nothing.
-"""
-
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
@@ -29,8 +22,8 @@ def list_methods(bean_id: int, db: Session = Depends(get_db)):
 )
 def create_method(bean_id: int, data: BrewMethodCreate, db: Session = Depends(get_db)):
     get_bean_or_404(db, bean_id)
-    # Checked up front so a duplicate is a clean 409 rather than an IntegrityError 500.
-    # The unique constraint is still the real guarantee.
+    # Checked up front so a duplicate is a 409 rather than an IntegrityError 500; the unique
+    # constraint is still the real guarantee.
     if crud.find_method_by_name(db, bean_id, data.name) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -43,6 +36,5 @@ def create_method(bean_id: int, data: BrewMethodCreate, db: Session = Depends(ge
     "/methods/{method_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response
 )
 def delete_method(method_id: int, db: Session = Depends(get_db)) -> None:
-    """Cascades to this method's attempts."""
     method = get_method_or_404(db, method_id)
     crud.delete_method(db, method)

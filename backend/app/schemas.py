@@ -1,15 +1,9 @@
-"""Pydantic v2 request/response models.
-
-max_length values mirror the column lengths in models.py. MySQL runs in
-STRICT_TRANS_TABLES and errors on over-length strings, so validating here turns what would
-be a 500 into a clean 422.
-"""
-
 from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# --------------------------------------------------------------------------- brew attempts
+# max_length values mirror the column lengths in models.py, so an over-length string is a
+# 422 here rather than a 500 from MySQL's STRICT_TRANS_TABLES.
 
 
 class BrewAttemptBase(BaseModel):
@@ -20,12 +14,10 @@ class BrewAttemptBase(BaseModel):
     notes: str | None = None
 
 
+# The *Create schemas omit ids that come from the URL path on purpose — otherwise a client
+# could POST to /methods/1/attempts with brew_method_id: 2.
 class BrewAttemptCreate(BrewAttemptBase):
-    """No brew_method_id — it comes from the URL path.
-
-    Accepting it in the body would let a client POST to /methods/1/attempts with
-    brew_method_id: 2 and create an inconsistency.
-    """
+    pass
 
 
 class BrewAttemptRead(BrewAttemptBase):
@@ -36,15 +28,12 @@ class BrewAttemptRead(BrewAttemptBase):
     brewed_at: datetime
 
 
-# ---------------------------------------------------------------------------- brew methods
-
-
 class BrewMethodBase(BaseModel):
     name: str = Field(min_length=1, max_length=50)
 
 
 class BrewMethodCreate(BrewMethodBase):
-    """No bean_id — it comes from the URL path."""
+    pass
 
 
 class BrewMethodRead(BrewMethodBase):
@@ -56,23 +45,19 @@ class BrewMethodRead(BrewMethodBase):
     attempts: list[BrewAttemptRead] = []
 
 
-# ---------------------------------------------------------------------------------- beans
-
-
 class BeanBase(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     roaster: str = Field(min_length=1, max_length=120)
     origin: str | None = Field(default=None, max_length=120)
     roast_date: date | None = None
-    # float, not Decimal: Pydantic v2 serializes Decimal to a JSON *string* ("12.50"),
-    # which would force parseFloat across the frontend. The column stays DECIMAL(6,2), so
-    # storage is still exact — only the wire format changes.
+    # float, not Decimal, despite the Numeric column: Pydantic v2 serializes Decimal to a
+    # JSON *string* ("12.50"), which would force parseFloat across the frontend.
     price: float | None = Field(default=None, ge=0, le=9999.99)
     notes: str | None = None
 
 
 class BeanCreate(BeanBase):
-    """Deliberately cannot set id, is_favourite, or created_at."""
+    pass
 
 
 class BeanRead(BeanBase):
@@ -84,8 +69,6 @@ class BeanRead(BeanBase):
 
 
 class BeanDetail(BeanRead):
-    """Bean with its methods, each carrying its own attempts."""
-
     brew_methods: list[BrewMethodRead] = []
 
 

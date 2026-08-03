@@ -39,8 +39,7 @@ export default function BeanDetail() {
     }
   }, []);
 
-  // router.query is empty on the first render of a dynamic route, so without this guard
-  // the first fetch would hit /beans/undefined.
+  // router.query is empty on first render, so an unguarded fetch would hit /beans/undefined.
   useEffect(() => {
     if (!router.isReady) return;
     load(id);
@@ -66,8 +65,6 @@ export default function BeanDetail() {
       setMethodName("");
       await load(bean.id);
     } catch (err) {
-      // A 409 means this bean already has that method — show it on the field rather than
-      // as a page-level error.
       setMethodError(err.message);
     } finally {
       setAddingMethod(false);
