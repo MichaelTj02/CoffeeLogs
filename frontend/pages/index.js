@@ -28,7 +28,7 @@ export default function Home() {
     try {
       setLoading(true);
       setError(null);
-      setRecent(await getBeans(RECENT_LIMIT));
+      setRecent(await getBeans(RECENT_LIMIT, "recent"));
     } catch (err) {
       setError(err.message);
     } finally {

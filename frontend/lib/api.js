@@ -39,9 +39,12 @@ async function request(path, options = {}) {
   return res.json();
 }
 
-export function getBeans(limit) {
-  const query = limit ? `?limit=${limit}` : "";
-  return request(`/beans${query}`);
+export function getBeans(limit, sort) {
+  const params = new URLSearchParams();
+  if (limit) params.set("limit", limit);
+  if (sort) params.set("sort", sort);
+  const query = params.toString();
+  return request(`/beans${query ? `?${query}` : ""}`);
 }
 
 export function createBean(data) {

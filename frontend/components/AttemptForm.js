@@ -25,8 +25,11 @@ export default function AttemptForm({ onSubmit }) {
     setSaving(true);
     setError(null);
 
+    // datetime-local has no offset, so send the UTC instant rather than bare wall-clock.
+    const brewedAt = blankToNull(form.brewed_at);
+
     const payload = {
-      brewed_at: blankToNull(form.brewed_at),
+      brewed_at: brewedAt && new Date(brewedAt).toISOString(),
       dose_grams: numberOrNull(form.dose_grams),
       yield_grams: numberOrNull(form.yield_grams),
       rating: numberOrNull(form.rating),
