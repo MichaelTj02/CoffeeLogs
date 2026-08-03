@@ -65,7 +65,7 @@ npm install
 ```
 
 No env file is needed locally; the API client defaults to `http://localhost:8000`. To point
-it elsewhere, copy `.env.local.example` to `.env.local`.
+it elsewhere, create `frontend/.env.local` with `NEXT_PUBLIC_API_URL=<url>`.
 
 ## Running
 
