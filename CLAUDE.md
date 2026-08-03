@@ -70,6 +70,30 @@ InnoDB) and `cascade="all, delete-orphan"` on each relationship (enforced by the
 
 Follow these when adding code — they are what the existing files do.
 
+### Comments — sparse, and only where the code can't speak
+
+Default to **no comment**. Well-named functions and variables carry the intent; a comment
+that restates the code is noise that goes stale.
+
+Write one only when a reader who understands the language would still be surprised:
+
+- Behaviour that contradicts what the code appears to do — a "useless" import that is
+  actually load-bearing, a redundant-looking check that prevents a real failure
+- A database or framework quirk that is invisible in the source (MySQL truncating
+  sub-second precision, SQLite not enforcing foreign keys by default)
+- A non-obvious algorithm, or a deliberate trade-off someone would otherwise "fix"
+
+Never write:
+
+- Docstrings or comments that restate the signature (`"""Bean endpoints."""`,
+  `# returns the bean`)
+- Section-divider banners
+- Explanations of standard language or framework idioms
+- Design rationale that belongs in this file or in `docs/` — link the idea, don't inline
+  an essay
+
+Keep them to one or two lines. If it needs a paragraph, it belongs in documentation.
+
 ### SQLAlchemy — 2.0 style only
 
 - `class Base(DeclarativeBase)`, not `declarative_base()`
