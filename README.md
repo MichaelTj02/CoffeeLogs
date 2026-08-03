@@ -98,11 +98,4 @@ npm run dev
 Activating the venv first is optional — `Activate.ps1` only puts `.venv\Scripts` on `PATH`,
 so naming the executable inside it does the same job.
 
-## Tests
-
-```powershell
-cd backend;  pip install -r requirements-dev.txt;  ruff check .;  pytest
-cd frontend; npm run lint;  npm test;  npm run build
-```
-
 Conventions for contributors are in [CLAUDE.md](CLAUDE.md).
