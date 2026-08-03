@@ -174,7 +174,7 @@ npm run dev                                        # http://localhost:3000
 All commits and PR titles follow **Conventional Commits v1.0.0**:
 
 ```
-<type>[(scope)][!]: <description>
+<type>[!]: <description>
 
 [optional body]
 
@@ -183,8 +183,8 @@ All commits and PR titles follow **Conventional Commits v1.0.0**:
 
 - **Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`,
   `chore`. `feat` is for new features, `fix` for bug fixes.
-- **Scopes**: `backend`, `frontend`, `db`, `api`, `beans`, `methods`, `attempts`, `ui`,
-  `ci`, `deps`
+- **No scopes.** Parenthesized scopes after the type (`fix(frontend): ...`) are not
+  allowed — write `fix: ...` and let the description name the area.
 - **Description**: lowercase, imperative, no trailing period, immediately after `: `
 - **Body**: optional, one blank line after the description
 - **Footers**: optional, one blank line after the body; tokens use `-` for spaces
@@ -196,10 +196,10 @@ All commits and PR titles follow **Conventional Commits v1.0.0**:
 Examples:
 
 ```
-feat(api): add brew method and attempt endpoints
-fix(frontend): send null instead of empty string for blank roast date
+feat: add brew method and attempt endpoints
+fix: send null instead of empty string for blank roast date
 docs: document the two-level cascade
-feat(api)!: address attempts by their own id
+feat!: address attempts by their own id
 
 BREAKING CHANGE: attempts moved from /beans/{id}/methods/{mid}/attempts to /attempts
 ```
