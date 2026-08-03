@@ -1,3 +1,5 @@
+from typing import Literal
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -5,12 +7,15 @@ from app.models import Bean, BrewAttempt, BrewMethod
 from app.schemas import BeanCreate, BrewAttemptCreate, BrewMethodCreate
 
 
-def list_beans(db: Session, limit: int | None = None) -> list[Bean]:
-    stmt = (
-        select(Bean)
-        .options(selectinload(Bean.brew_methods))
-        .order_by(Bean.is_favourite.desc(), Bean.created_at.desc(), Bean.id.desc())
+def list_beans(
+    db: Session, limit: int | None = None, sort: Literal["favourites", "recent"] = "favourites"
+) -> list[Bean]:
+    order = (
+        (Bean.created_at.desc(), Bean.id.desc())
+        if sort == "recent"
+        else (Bean.is_favourite.desc(), Bean.created_at.desc(), Bean.id.desc())
     )
+    stmt = select(Bean).options(selectinload(Bean.brew_methods)).order_by(*order)
     if limit is not None:
         stmt = stmt.limit(limit)
     return list(db.execute(stmt).scalars().all())

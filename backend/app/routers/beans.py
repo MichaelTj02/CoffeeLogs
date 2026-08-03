@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
@@ -12,9 +14,10 @@ router = APIRouter(prefix="/beans", tags=["beans"])
 @router.get("", response_model=list[BeanRead])
 def list_beans(
     limit: int | None = Query(default=None, ge=1, le=200),
+    sort: Literal["favourites", "recent"] = Query(default="favourites"),
     db: Session = Depends(get_db),
 ):
-    return crud.list_beans(db, limit=limit)
+    return crud.list_beans(db, limit=limit, sort=sort)
 
 
 @router.post("", response_model=BeanRead, status_code=status.HTTP_201_CREATED)
