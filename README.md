@@ -5,13 +5,6 @@ turned out. Log a bag of Ethiopia Yirgacheffe, add a V60 and an AeroPress to it,
 record each brew's dose, yield, and rating so you can watch a recipe get dialled in over
 time.
 
-```
-beans ──< brew_methods ──< brew_attempts
-```
-
-A brew method is a thing you own per bean rather than a label you retype, which is what
-makes attempts group under it and "am I improving?" answerable.
-
 **Stack** — FastAPI · SQLAlchemy 2.0 · Pydantic v2 · MySQL 8 · Next.js 14.2 (pages
 router) · pytest + Jest · GitHub Actions.
 
@@ -97,5 +90,3 @@ npm run dev
 
 Activating the venv first is optional — `Activate.ps1` only puts `.venv\Scripts` on `PATH`,
 so naming the executable inside it does the same job.
-
-Conventions for contributors are in [CLAUDE.md](CLAUDE.md).
