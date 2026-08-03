@@ -11,9 +11,16 @@ export function numberOrNull(value) {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
 export function formatDate(value) {
   if (!value) return null;
-  const d = new Date(value);
+  // A date-only string parses as UTC midnight, which renders a day early west of UTC,
+  // so build it as a local calendar date instead.
+  const parts = typeof value === "string" ? value.match(DATE_ONLY) : null;
+  const d = parts
+    ? new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]))
+    : new Date(value);
   if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }

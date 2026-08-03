@@ -4,7 +4,7 @@ import StarButton from "@/components/StarButton";
 import { formatDate, formatPrice } from "@/lib/format";
 
 export default function BeanCard({ bean, onToggleFavourite, onDelete, busy }) {
-  const methodCount = bean.brew_methods ? bean.brew_methods.length : 0;
+  const methodCount = bean.method_count ?? 0;
   const roastDate = formatDate(bean.roast_date);
   const price = formatPrice(bean.price);
 
