@@ -52,6 +52,10 @@ class Bean(Base):
         order_by="BrewMethod.created_at",
     )
 
+    @property
+    def method_count(self) -> int:
+        return len(self.brew_methods)
+
     def __repr__(self) -> str:
         return f"<Bean id={self.id} name={self.name!r}>"
 

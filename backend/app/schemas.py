@@ -1,9 +1,17 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 # max_length values mirror the column lengths in models.py, so an over-length string is a
 # 422 here rather than a 500 from MySQL's STRICT_TRANS_TABLES.
+
+
+# Columns are naive DATETIME(6) holding UTC; the wire contract is UTC with an explicit
+# offset. check_fields lets one mixin cover the differently-named field on each Read schema.
+class UTCAwareOut(BaseModel):
+    @field_serializer("created_at", "brewed_at", check_fields=False)
+    def _serialize_utc(self, value: datetime) -> datetime:
+        return value.replace(tzinfo=UTC)
 
 
 class BrewAttemptBase(BaseModel):
@@ -13,6 +21,15 @@ class BrewAttemptBase(BaseModel):
     rating: int | None = Field(default=None, ge=1, le=5)
     notes: str | None = None
 
+    # Naive input is taken as UTC rather than rejected — clients other than our frontend
+    # may omit the offset.
+    @field_validator("brewed_at", mode="after")
+    @classmethod
+    def _to_naive_utc(cls, value: datetime | None) -> datetime | None:
+        if value is None or value.tzinfo is None:
+            return value
+        return value.astimezone(UTC).replace(tzinfo=None)
+
 
 # The *Create schemas omit ids that come from the URL path on purpose — otherwise a client
 # could POST to /methods/1/attempts with brew_method_id: 2.
@@ -20,7 +37,7 @@ class BrewAttemptCreate(BrewAttemptBase):
     pass
 
 
-class BrewAttemptRead(BrewAttemptBase):
+class BrewAttemptRead(BrewAttemptBase, UTCAwareOut):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -36,7 +53,7 @@ class BrewMethodCreate(BrewMethodBase):
     pass
 
 
-class BrewMethodRead(BrewMethodBase):
+class BrewMethodRead(BrewMethodBase, UTCAwareOut):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -60,12 +77,13 @@ class BeanCreate(BeanBase):
     pass
 
 
-class BeanRead(BeanBase):
+class BeanRead(BeanBase, UTCAwareOut):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     is_favourite: bool
     created_at: datetime
+    method_count: int
 
 
 class BeanDetail(BeanRead):
