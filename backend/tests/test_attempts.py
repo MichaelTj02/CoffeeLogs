@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime
 
 
 def test_create_attempt_returns_201(client, make_bean, make_method):
@@ -7,7 +7,7 @@ def test_create_attempt_returns_201(client, make_bean, make_method):
     response = client.post(
         f"/methods/{method.id}/attempts",
         json={
-            "brewed_at": "2026-04-01T07:30:00Z",
+            "brewed_at": "2026-04-01",
             "dose_grams": 18,
             "yield_grams": 300,
             "rating": 4,
@@ -18,6 +18,7 @@ def test_create_attempt_returns_201(client, make_bean, make_method):
     assert response.status_code == 201
     body = response.json()
     assert body["brew_method_id"] == method.id
+    assert body["brewed_at"] == "2026-04-01"
     assert body["dose_grams"] == 18
     assert body["yield_grams"] == 300
     assert body["rating"] == 4
@@ -31,17 +32,29 @@ def test_create_attempt_unknown_method_is_404(client):
     assert response.json()["detail"] == "Brew method 999 not found"
 
 
-def test_omitted_brewed_at_defaults_to_now(client, make_bean, make_method):
+def test_brewed_at_serializes_as_a_bare_date(client, make_bean, make_method):
+    method = make_method(make_bean())
+
+    brewed_at = client.post(
+        f"/methods/{method.id}/attempts",
+        json={"brewed_at": "2026-04-01", "dose_grams": 18, "yield_grams": 300},
+    ).json()["brewed_at"]
+
+    assert brewed_at == "2026-04-01"
+    assert "T" not in brewed_at
+
+
+def test_omitted_brewed_at_defaults_to_today(client, make_bean, make_method):
     method = make_method(make_bean())
 
     brewed_at = client.post(
         f"/methods/{method.id}/attempts", json={"dose_grams": 18, "yield_grams": 300}
     ).json()["brewed_at"]
 
-    assert abs(datetime.fromisoformat(brewed_at) - datetime.now(UTC)) < timedelta(minutes=5)
+    assert date.fromisoformat(brewed_at) == datetime.now(UTC).date()
 
 
-def test_null_brewed_at_defaults_to_now(client, make_bean, make_method):
+def test_null_brewed_at_defaults_to_today(client, make_bean, make_method):
     method = make_method(make_bean())
 
     brewed_at = client.post(
@@ -49,30 +62,20 @@ def test_null_brewed_at_defaults_to_now(client, make_bean, make_method):
         json={"brewed_at": None, "dose_grams": 18, "yield_grams": 300},
     ).json()["brewed_at"]
 
-    assert abs(datetime.fromisoformat(brewed_at) - datetime.now(UTC)) < timedelta(minutes=5)
+    assert date.fromisoformat(brewed_at) == datetime.now(UTC).date()
 
 
-def test_offset_brewed_at_is_normalized_to_the_same_instant(client, make_bean, make_method):
+# A client still sending the old timestamp format gets a clear 422 rather than a silently
+# truncated date -- Pydantic only narrows a datetime to a date when the time is midnight.
+def test_brewed_at_with_a_time_component_is_422(client, make_bean, make_method):
     method = make_method(make_bean())
 
-    brewed_at = client.post(
+    response = client.post(
         f"/methods/{method.id}/attempts",
-        json={"brewed_at": "2026-04-01T12:00:00+02:00", "dose_grams": 18, "yield_grams": 300},
-    ).json()["brewed_at"]
+        json={"brewed_at": "2026-04-01T12:00:00Z", "dose_grams": 18, "yield_grams": 300},
+    )
 
-    assert datetime.fromisoformat(brewed_at) == datetime(2026, 4, 1, 10, 0, tzinfo=UTC)
-
-
-def test_naive_brewed_at_is_treated_as_utc(client, make_bean, make_method):
-    method = make_method(make_bean())
-
-    brewed_at = client.post(
-        f"/methods/{method.id}/attempts",
-        json={"brewed_at": "2026-04-01T12:00:00", "dose_grams": 18, "yield_grams": 300},
-    ).json()["brewed_at"]
-
-    assert datetime.fromisoformat(brewed_at) == datetime(2026, 4, 1, 12, 0, tzinfo=UTC)
-    assert brewed_at.endswith("Z") or brewed_at.endswith("+00:00")
+    assert response.status_code == 422
 
 
 def test_empty_string_brewed_at_is_422(client, make_bean, make_method):
@@ -184,25 +187,41 @@ def test_create_attempt_ignores_brew_method_id_in_body(client, make_bean, make_m
 
 def test_list_attempts_is_ordered_newest_first(client, make_bean, make_method, make_attempt):
     method = make_method(make_bean())
-    older = make_attempt(method, brewed_at=datetime(2026, 4, 1, 7, 0))
-    newer = make_attempt(method, brewed_at=datetime(2026, 4, 2, 7, 0))
+    older = make_attempt(method, brewed_at=date(2026, 4, 1))
+    newer = make_attempt(method, brewed_at=date(2026, 4, 2))
 
     ids = [attempt["id"] for attempt in client.get(f"/methods/{method.id}/attempts").json()]
 
     assert ids == [newer.id, older.id]
 
 
-def test_list_attempts_breaks_timestamp_ties_by_id_desc(
+# Several brews a day is the normal case now that brewed_at has no time, so the id
+# tiebreaker is what keeps same-day attempts in a stable, newest-first order.
+def test_list_attempts_breaks_same_day_ties_by_id_desc(
     client, make_bean, make_method, make_attempt
 ):
     method = make_method(make_bean())
-    same_moment = datetime(2026, 4, 1, 7, 0)
-    first = make_attempt(method, brewed_at=same_moment)
-    second = make_attempt(method, brewed_at=same_moment)
+    same_day = date(2026, 4, 1)
+    first = make_attempt(method, brewed_at=same_day)
+    second = make_attempt(method, brewed_at=same_day)
 
     ids = [attempt["id"] for attempt in client.get(f"/methods/{method.id}/attempts").json()]
 
     assert ids == [second.id, first.id]
+
+
+def test_bean_detail_orders_same_day_attempts_newest_first(
+    client, make_bean, make_method, make_attempt
+):
+    bean = make_bean()
+    method = make_method(bean)
+    same_day = date(2026, 4, 1)
+    first = make_attempt(method, brewed_at=same_day)
+    second = make_attempt(method, brewed_at=same_day)
+
+    attempts = client.get(f"/beans/{bean.id}").json()["brew_methods"][0]["attempts"]
+
+    assert [a["id"] for a in attempts] == [second.id, first.id]
 
 
 def test_list_attempts_only_returns_that_methods_attempts(

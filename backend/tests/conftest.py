@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
@@ -95,7 +95,7 @@ def make_attempt(db):
     def _make(method, **overrides):
         values = {
             "brew_method_id": method.id,
-            "brewed_at": datetime(2026, 1, 1, 8, 0, 0),
+            "brewed_at": date(2026, 1, 1),
             "dose_grams": 18.0,
             "yield_grams": 300.0,
         }

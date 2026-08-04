@@ -28,6 +28,10 @@ def _utcnow() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
+def _today() -> date:
+    return datetime.now(UTC).date()
+
+
 class Bean(Base):
     __tablename__ = "beans"
 
@@ -72,10 +76,11 @@ class BrewMethod(Base):
     created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False, default=_utcnow)
 
     bean: Mapped[Bean] = relationship(back_populates="brew_methods")
+    # brewed_at is a date, so several attempts a day tie: id breaks it to newest-first.
     attempts: Mapped[list["BrewAttempt"]] = relationship(
         back_populates="brew_method",
         cascade="all, delete-orphan",
-        order_by="BrewAttempt.brewed_at.desc()",
+        order_by="(BrewAttempt.brewed_at.desc(), BrewAttempt.id.desc())",
     )
 
     def __repr__(self) -> str:
@@ -94,7 +99,7 @@ class BrewAttempt(Base):
     brew_method_id: Mapped[int] = mapped_column(
         ForeignKey("brew_methods.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    brewed_at: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False, default=_utcnow)
+    brewed_at: Mapped[date] = mapped_column(Date, nullable=False, default=_today)
     dose_grams: Mapped[float] = mapped_column(Float, nullable=False)
     yield_grams: Mapped[float] = mapped_column(Float, nullable=False)
     rating: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)

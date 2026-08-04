@@ -13,7 +13,7 @@ import {
   getBean,
   setFavourite,
 } from "@/lib/api";
-import { brewRatio, formatDate, formatDateTime, formatPrice, stars } from "@/lib/format";
+import { brewRatio, formatDate, formatPrice, stars } from "@/lib/format";
 
 export default function BeanDetail() {
   const router = useRouter();
@@ -260,9 +260,7 @@ export default function BeanDetail() {
                             {attempt.rating && (
                               <span className="attempt-rating">{stars(attempt.rating)}</span>
                             )}
-                            <span className="attempt-when">
-                              {formatDateTime(attempt.brewed_at)}
-                            </span>
+                            <span className="attempt-when">{formatDate(attempt.brewed_at)}</span>
                           </div>
                           {attempt.notes && <p className="attempt-notes">{attempt.notes}</p>}
                         </div>
