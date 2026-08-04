@@ -1,21 +1,6 @@
-import {
-  blankToNull,
-  brewRatio,
-  formatDate,
-  formatDateTime,
-  formatPrice,
-  numberOrNull,
-  stars,
-} from "@/lib/format";
+import { blankToNull, brewRatio, formatDate, formatPrice, numberOrNull, stars } from "@/lib/format";
 
 const DATE_OPTIONS = { year: "numeric", month: "short", day: "numeric" };
-const DATE_TIME_OPTIONS = {
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-};
 
 describe("blankToNull", () => {
   it("trims and keeps non-empty strings", () => {
@@ -76,19 +61,6 @@ describe("formatDate", () => {
     expect(formatDate(null)).toBeNull();
     expect(formatDate("")).toBeNull();
     expect(formatDate("not a date")).toBeNull();
-  });
-});
-
-describe("formatDateTime", () => {
-  it("renders a timestamp with hour and minute", () => {
-    const value = "2026-01-15T09:30:00Z";
-    const expected = new Date(value).toLocaleString(undefined, DATE_TIME_OPTIONS);
-    expect(formatDateTime(value)).toBe(expected);
-  });
-
-  it("returns null for falsy and invalid input", () => {
-    expect(formatDateTime(undefined)).toBeNull();
-    expect(formatDateTime("nope")).toBeNull();
   });
 });
 

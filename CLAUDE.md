@@ -51,8 +51,15 @@ beans ──< brew_methods ──< brew_attempts
   `is_favourite`, `created_at`
 - **`brew_methods`** — `id`, `bean_id` (FK), `name` ("V60", "AeroPress"), `created_at`.
   Unique on `(bean_id, name)`.
-- **`brew_attempts`** — `id`, `brew_method_id` (FK), `brewed_at`, `dose_grams`,
-  `yield_grams`, `rating` (1–5), `notes`
+- **`brew_attempts`** — `id`, `brew_method_id` (FK), `brewed_at` (a `Date`, not a
+  timestamp), `dose_grams`, `yield_grams`, `rating` (1–5), `notes`
+
+`brewed_at` is a **calendar date on purpose.** The day you brewed is the same day in every
+timezone, so there is nothing to convert, and the time of day carries no information worth
+storing. It behaves exactly like `roast_date`: sent and received as a bare `YYYY-MM-DD`
+string, never an instant. Because several attempts a day is the normal case, everything
+ordering by `brewed_at DESC` **must** carry an `id DESC` tiebreaker — both `crud` and the
+`BrewMethod.attempts` relationship do.
 
 **Why three tables and not a `method` string column on the log?** Because a method is a
 real thing you own per bean: you want to dial in a V60 recipe across several attempts and
@@ -113,7 +120,8 @@ Keep them to one or two lines. If it needs a paragraph, it belongs in documentat
   surfaces against the real database.
 - **Every datetime column uses `.with_variant(mysql.DATETIME(fsp=6), "mysql")`.** Plain
   `DateTime` compiles to MySQL `DATETIME(0)` and silently discards sub-second precision,
-  which makes two attempts logged in the same second tie under `ORDER BY brewed_at DESC`.
+  which makes two rows written in the same second tie under an `ORDER BY` on that column.
+  This applies to the `created_at` columns; `brewed_at` is a plain `Date` and is exempt.
 - **Schema `max_length` mirrors the column length.** MySQL runs `STRICT_TRANS_TABLES` and
   errors on over-length strings; validating at the API boundary turns a 500 into a 422.
 - `price` is `Numeric(6,2)` in the model but typed `float` in the schema — Pydantic v2

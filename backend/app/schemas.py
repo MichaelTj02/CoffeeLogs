@@ -1,34 +1,28 @@
 from datetime import UTC, date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 # max_length values mirror the column lengths in models.py, so an over-length string is a
 # 422 here rather than a 500 from MySQL's STRICT_TRANS_TABLES.
 
 
-# Columns are naive DATETIME(6) holding UTC; the wire contract is UTC with an explicit
-# offset. check_fields lets one mixin cover the differently-named field on each Read schema.
+# created_at columns are naive DATETIME(6) holding UTC; the wire contract is UTC with an
+# explicit offset. brewed_at is a plain calendar date and is deliberately not covered here.
+# check_fields=False is required because the mixin itself declares no created_at field.
 class UTCAwareOut(BaseModel):
-    @field_serializer("created_at", "brewed_at", check_fields=False)
+    @field_serializer("created_at", check_fields=False)
     def _serialize_utc(self, value: datetime) -> datetime:
         return value.replace(tzinfo=UTC)
 
 
 class BrewAttemptBase(BaseModel):
-    brewed_at: datetime | None = None
+    # A calendar date, not an instant: the day you brewed is the same day everywhere, so
+    # there is no timezone to convert and no time of day worth recording.
+    brewed_at: date | None = None
     dose_grams: float = Field(gt=0, le=1000)
     yield_grams: float = Field(gt=0, le=5000)
     rating: int | None = Field(default=None, ge=1, le=5)
     notes: str | None = None
-
-    # Naive input is taken as UTC rather than rejected — clients other than our frontend
-    # may omit the offset.
-    @field_validator("brewed_at", mode="after")
-    @classmethod
-    def _to_naive_utc(cls, value: datetime | None) -> datetime | None:
-        if value is None or value.tzinfo is None:
-            return value
-        return value.astimezone(UTC).replace(tzinfo=None)
 
 
 # The *Create schemas omit ids that come from the URL path on purpose — otherwise a client
@@ -37,12 +31,12 @@ class BrewAttemptCreate(BrewAttemptBase):
     pass
 
 
-class BrewAttemptRead(BrewAttemptBase, UTCAwareOut):
+class BrewAttemptRead(BrewAttemptBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     brew_method_id: int
-    brewed_at: datetime
+    brewed_at: date
 
 
 class BrewMethodBase(BaseModel):

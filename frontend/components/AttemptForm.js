@@ -25,11 +25,8 @@ export default function AttemptForm({ onSubmit }) {
     setSaving(true);
     setError(null);
 
-    // datetime-local has no offset, so send the UTC instant rather than bare wall-clock.
-    const brewedAt = blankToNull(form.brewed_at);
-
     const payload = {
-      brewed_at: brewedAt && new Date(brewedAt).toISOString(),
+      brewed_at: blankToNull(form.brewed_at),
       dose_grams: numberOrNull(form.dose_grams),
       yield_grams: numberOrNull(form.yield_grams),
       rating: numberOrNull(form.rating),
@@ -81,9 +78,9 @@ export default function AttemptForm({ onSubmit }) {
         </div>
 
         <div className="field">
-          <label>Brewed at</label>
+          <label>Brewed on</label>
           <input
-            type="datetime-local"
+            type="date"
             value={form.brewed_at}
             onChange={(e) => update("brewed_at", e.target.value)}
           />

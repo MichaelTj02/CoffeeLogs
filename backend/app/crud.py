@@ -105,7 +105,7 @@ def get_attempt(db: Session, attempt_id: int) -> BrewAttempt | None:
 
 def create_attempt(db: Session, method_id: int, data: BrewAttemptCreate) -> BrewAttempt:
     payload = data.model_dump()
-    # A blank datetime-local input sends null; default it to now rather than rejecting.
+    # A blank date input sends null; default it to today rather than rejecting.
     if payload.get("brewed_at") is None:
         payload.pop("brewed_at", None)
     attempt = BrewAttempt(brew_method_id=method_id, **payload)
