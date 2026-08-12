@@ -3,11 +3,13 @@ import "@/styles/globals.css";
 
 import Head from "next/head";
 
+import AuthGuard from "@/components/AuthGuard";
 import Navbar from "@/components/Navbar";
+import { AuthProvider } from "@/lib/auth";
 
 export default function App({ Component, pageProps }) {
   return (
-    <>
+    <AuthProvider>
       <Head>
         <title>CoffeeLogs</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -15,8 +17,10 @@ export default function App({ Component, pageProps }) {
       </Head>
       <Navbar />
       <main className="container">
-        <Component {...pageProps} />
+        <AuthGuard>
+          <Component {...pageProps} />
+        </AuthGuard>
       </main>
-    </>
+    </AuthProvider>
   );
 }

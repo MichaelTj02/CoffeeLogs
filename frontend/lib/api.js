@@ -16,6 +16,8 @@ async function request(path, options = {}) {
   try {
     res = await fetch(`${API_URL}${path}`, {
       headers: { "Content-Type": "application/json" },
+      // The session cookie is httpOnly, so it only travels if the request opts in.
+      credentials: "include",
       ...options,
     });
   } catch {
@@ -31,12 +33,38 @@ async function request(path, options = {}) {
     }
     const error = new Error(messageFromDetail(detail, res.statusText || "Request failed"));
     error.status = res.status;
+    // Lets the auth context drop the user without every caller having to check for a 401.
+    if (res.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new Event("coffeelogs:unauthorized"));
+    }
     throw error;
   }
 
   // A 204 has no body, so res.json() would throw.
   if (res.status === 204) return null;
   return res.json();
+}
+
+export function register(email, password) {
+  return request("/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export function login(email, password) {
+  return request("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export function logout() {
+  return request("/auth/logout", { method: "POST" });
+}
+
+export function getMe() {
+  return request("/auth/me");
 }
 
 export function getBeans(limit, sort) {
