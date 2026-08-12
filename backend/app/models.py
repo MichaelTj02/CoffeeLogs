@@ -25,6 +25,8 @@ UTC_DATETIME = DateTime().with_variant(mysql.DATETIME(fsp=6), "mysql")
 
 
 def _utcnow() -> datetime:
+    # MySQL DATETIME stores no offset, so the value goes in naive; UTCAwareOut in schemas.py
+    # re-attaches UTC on the way out.
     return datetime.now(UTC).replace(tzinfo=None)
 
 

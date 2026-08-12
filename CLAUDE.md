@@ -80,7 +80,8 @@ Follow these when adding code — they are what the existing files do.
 ### Comments — sparse, and only where the code can't speak
 
 Default to **no comment**. Well-named functions and variables carry the intent; a comment
-that restates the code is noise that goes stale.
+that restates the code is noise that goes stale. This applies when editing existing code
+too — delete a restating comment on sight rather than carrying it along.
 
 Write one only when a reader who understands the language would still be surprised:
 

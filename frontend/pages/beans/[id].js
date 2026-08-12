@@ -45,6 +45,8 @@ export default function BeanDetail() {
     load(id);
   }, [router.isReady, id, load]);
 
+  // The one mutation here that skips the re-load: the star flips optimistically and
+  // rolls back on failure, so a round trip would buy nothing.
   async function handleToggleFavourite() {
     const next = !bean.is_favourite;
     setBean((prev) => ({ ...prev, is_favourite: next }));

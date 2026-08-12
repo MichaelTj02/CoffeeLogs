@@ -37,7 +37,6 @@ def set_favourite(bean_id: int, data: FavouriteUpdate, db: Session = Depends(get
     return crud.set_bean_favourite(db, bean, data.is_favourite)
 
 
-# No response_model and a None return: a 204 with a body is a protocol violation.
 @router.delete("/{bean_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def delete_bean(bean_id: int, db: Session = Depends(get_db)) -> None:
     bean = get_bean_or_404(db, bean_id)
