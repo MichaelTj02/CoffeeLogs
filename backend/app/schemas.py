@@ -1,6 +1,7 @@
+import re
 from datetime import UTC, date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 # max_length values mirror the column lengths in models.py, so an over-length string is a
 # 422 here rather than a 500 from MySQL's STRICT_TRANS_TABLES.
@@ -86,3 +87,38 @@ class BeanDetail(BeanRead):
 
 class FavouriteUpdate(BaseModel):
     is_favourite: bool
+
+
+_EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+
+
+class UserCredentials(BaseModel):
+    email: str = Field(max_length=255)
+    # Never trimmed, unlike the email: leading or trailing whitespace is part of a password.
+    # The 128 cap bounds argon2's hashing cost; it mirrors no column length.
+    password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("email", mode="after")
+    @classmethod
+    def _normalize_email(cls, value: str) -> str:
+        # Shape-checked here rather than via Field(pattern=...), which runs before this
+        # lowercasing and would reject A@B.COM. Stripping matters because an address
+        # registered with stray whitespace could never be logged into.
+        email = value.strip().lower()
+        if _EMAIL_RE.fullmatch(email) is None:
+            raise ValueError("Not a valid email address")
+        return email
+
+
+# Login deliberately inherits the min_length=1 password instead: an existing password shorter
+# than this must fail as a 401, not a 422.
+class UserRegister(UserCredentials):
+    password: str = Field(min_length=8, max_length=128)
+
+
+class UserRead(UTCAwareOut):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    created_at: datetime
