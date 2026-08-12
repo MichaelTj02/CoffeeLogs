@@ -20,19 +20,27 @@ CoffeeLogs/
 ├─ backend/            FastAPI app — own toolchain, rooted here for ruff/pytest
 │  ├─ app/
 │  │  ├─ database.py   engine, Base, get_db
-│  │  ├─ models.py     SQLAlchemy models
+│  │  ├─ models.py     SQLAlchemy models, utcnow
 │  │  ├─ schemas.py    Pydantic request/response models
 │  │  ├─ crud.py       DB access functions
+│  │  ├─ security.py   argon2 hashing, session tokens, cookie name + TTL
+│  │  ├─ deps.py       get_current_user, the *_or_404 lookups
 │  │  ├─ main.py       app assembly, CORS, /health
 │  │  ├─ init_db.py    create tables (run explicitly, never on startup)
-│  │  └─ routers/      beans.py, methods.py, attempts.py
+│  │  └─ routers/      auth.py, beans.py, methods.py, attempts.py
+│  ├─ tests/           pytest suite — SQLite through a get_db override
 │  ├─ requirements.txt
+│  ├─ requirements-dev.txt   pytest, httpx, ruff
 │  └─ pyproject.toml   ruff + pytest config
-└─ frontend/           Next.js app — own toolchain, own lockfile
-   ├─ components/      Navbar, BeanCard, StarButton
-   ├─ lib/api.js       single fetch wrapper
-   ├─ pages/           _app.js, index.js, logs.js, beans/[id].js
-   └─ styles/globals.css
+├─ frontend/           Next.js app — own toolchain, own lockfile
+│  ├─ components/      Navbar, BeanCard, StarButton, AttemptForm, AuthGuard
+│  ├─ lib/             api.js (single fetch wrapper), auth.js (AuthProvider/useAuth),
+│  │                   format.js
+│  ├─ pages/           _app.js, index.js, logs.js, login.js, register.js, beans/[id].js
+│  ├─ __tests__/       page tests; component and lib tests sit beside their source
+│  └─ styles/globals.css
+├─ .github/workflows/  ci.yml — lint + test + build
+└─ dev.ps1             starts both dev servers in their own windows
 ```
 
 Backend and frontend are **independent siblings**. There is deliberately **no root
@@ -41,14 +49,20 @@ manifest would make it resolve the wrong one.
 
 ## Data model
 
-Three tables, two levels of foreign keys:
+Five tables. Everything hangs off a user:
 
 ```
-beans ──< brew_methods ──< brew_attempts
+users ──< beans ──< brew_methods ──< brew_attempts
+   └──< sessions
 ```
 
-- **`beans`** — `id`, `name`, `roaster`, `origin`, `roast_date`, `price`, `notes`,
-  `is_favourite`, `created_at`
+- **`users`** — `id`, `email` (unique, indexed, stored lowercase), `password_hash`,
+  `created_at`
+- **`sessions`** — `id`, `user_id` (FK), `token_hash` (unique, indexed), `created_at`,
+  `expires_at`. The model class is `UserSession`, because `Session` is
+  `sqlalchemy.orm.Session` everywhere else here.
+- **`beans`** — `id`, `user_id` (FK), `name`, `roaster`, `origin`, `roast_date`, `price`,
+  `notes`, `is_favourite`, `created_at`
 - **`brew_methods`** — `id`, `bean_id` (FK), `name` ("V60", "AeroPress"), `created_at`.
   Unique on `(bean_id, name)`.
 - **`brew_attempts`** — `id`, `brew_method_id` (FK), `brewed_at` (a `Date`, not a
@@ -61,14 +75,30 @@ string, never an instant. Because several attempts a day is the normal case, eve
 ordering by `brewed_at DESC` **must** carry an `id DESC` tiebreaker — both `crud` and the
 `BrewMethod.attempts` relationship do.
 
-**Why three tables and not a `method` string column on the log?** Because a method is a
-real thing you own per bean: you want to dial in a V60 recipe across several attempts and
+**Why a `brew_methods` table and not a `method` string column on the log?** Because a method
+is a real thing you own per bean: you want to dial in a V60 recipe across several attempts and
 see those attempts grouped. With a string column, `"V60"` and `"v60"` become separate
 groups, and a method you plan to try but haven't brewed yet can't exist at all.
 
-Deletes cascade **two levels**: removing a bean removes its methods, which removes their
-attempts. This is configured in both places — `ondelete="CASCADE"` on each FK (enforced by
-InnoDB) and `cascade="all, delete-orphan"` on each relationship (enforced by the ORM).
+A session row stores `sha256(raw_token)`, never the raw token — the token is handed to the
+browser once, at creation, and cannot be recovered from the database afterwards, so a dump
+holds no usable credential. **sha256 and not argon2** is the right call here: the token is
+256 bits of `secrets` entropy, so there is nothing to brute-force and no reason to pay
+argon2's cost on every request. Passwords, which *are* guessable, use argon2.
+
+Sessions get a **fixed 30-day TTL, no sliding renewal**. Expired rows are deleted lazily —
+when the owner logs in, and when an expired cookie is presented — so they linger until
+something touches them.
+
+Datetime values are **naive UTC**, matching every other stored datetime here. Anything
+computed against a loaded datetime (`expires_at`, the expiry check) must use the public
+`models.utcnow` helper, never `datetime.now(UTC)`: comparing an aware `now` with a naive
+column value raises `TypeError` and surfaces as a 500.
+
+Deletes cascade **from the user down**: removing a user removes their sessions and their
+beans, which removes those beans' methods, which removes their attempts. This is configured
+in both places — `ondelete="CASCADE"` on each FK (enforced by InnoDB) and
+`cascade="all, delete-orphan"` on each relationship (enforced by the ORM).
 
 > The ORM cascade only fires for `db.delete(obj)`. A bulk `db.query(...).delete()` bypasses
 > it entirely. Always load the object first.
@@ -106,7 +136,10 @@ Keep them to one or two lines. If it needs a paragraph, it belongs in documentat
 
 - `class Base(DeclarativeBase)`, not `declarative_base()`
 - `Mapped[...]` + `mapped_column(...)`, not `Column(...)`
-- `select()` + `.scalars()`, not `db.query()`; `db.get(Model, id)` for primary-key lookups
+- `select()` + `.scalars()`, not `db.query()`; `db.get(Model, id)` for primary-key lookups —
+  **except** `get_bean`, `get_method` and `get_attempt`, which use a filtered `select()`
+  because a primary-key lookup cannot carry the ownership filter. "Restoring the convention"
+  there would silently delete the ownership check.
 
 ### Pydantic — v2 only
 
@@ -129,10 +162,34 @@ Keep them to one or two lines. If it needs a paragraph, it belongs in documentat
   serializes `Decimal` to a JSON *string*, which would force `parseFloat` across the
   frontend. Storage stays exact; the wire format stays a number.
 
+### Ownership
+
+- Every data endpoint takes `user: User = Depends(get_current_user)` and threads `user.id`
+  down. `/health` and the `/auth` routes are the exceptions — `/auth/me` still
+  authenticates, it just has nothing to scope.
+- **The filter is applied once, at the top-most lookup.** Scoped crud functions take
+  `user_id` immediately after `db`; below an already-resolved bean, ids are trusted, and the
+  crud functions that trust one carry a one-line comment saying so. Don't add a second
+  filter deeper down, and don't drop the comment that explains why there isn't one.
+- **Someone else's row is a 404, not a 403.** A 403 is an existence oracle over sequential
+  ids.
+- `user_id` appears in **no** Pydantic schema — it comes from the session, never the body.
+- Methods and attempts have no `user_id` column; ownership derives by joining up to `beans`.
+
 ### API rules
 
-- `POST` returns **201**; `DELETE` returns **204** with no `response_model` and a `None`
-  return (a 204 with a body is a protocol violation)
+- A `POST` that **creates a resource** returns **201**; `DELETE` returns **204** with no
+  `response_model` and a `None` return (a 204 with a body is a protocol violation).
+  `POST /auth/login` returning 200 and `POST /auth/logout` returning 204 are deliberate —
+  neither creates a resource the client addresses afterwards
+- Auth lives under `/auth`: `POST /register` (201 `UserRead` + `Set-Cookie`, auto-login;
+  409 on a duplicate email), `POST /login` (200 `UserRead` + `Set-Cookie`; 401 with one
+  detail string for both unknown email and wrong password), `POST /logout` (204, and never
+  errors — it reads the cookie directly rather than through `get_current_user`, because
+  logging out twice has to succeed), `GET /me` (200 `UserRead`, else 401)
+- `get_current_user` reads the cookie as `Cookie(default=None, ...)`. The `None` default is
+  what makes an anonymous 401 possible: a required cookie makes FastAPI answer **422** before
+  the handler body ever runs
 - Ids that come from the URL path (`bean_id`, `brew_method_id`) **never** appear in
   `*Create` schemas — otherwise a client could POST to `/beans/1/methods` with
   `bean_id: 2`
@@ -150,6 +207,30 @@ Keep them to one or two lines. If it needs a paragraph, it belongs in documentat
 - Re-fetch after a mutation rather than patching local state; one code path, server-truth
   ordering. The favourite toggle is the deliberate exception — it updates optimistically so
   the star responds instantly.
+- **`AuthGuard` in `_app.js` is the single choke point** for "is this page reachable". Pages
+  don't check auth themselves, which is also why page tests can render them directly.
+- **`signIn(user)` stores the `UserRead` that login and register already return.** `_app.js`
+  never remounts on client-side navigation, so without it the guard still sees
+  `user === null` after a successful login and bounces straight back to `/login`.
+- **`AuthGuard` renders the `.state` div in every non-final state**, not just while loading.
+  `router.replace` is async, so falling through mounts the real page for a frame — its
+  effects fire a burst of 401s, and the mirror case flashes the login form at a signed-in
+  user.
+- **Trim the email, never the password.** Trailing whitespace can be part of a password;
+  trimming it silently mutates a valid credential.
+
+### CSRF and the localhost/127.0.0.1 trap
+
+`localhost:3000 → localhost:8000` is cross-origin but **same-site**, so the `Lax` session
+cookie flows with `credentials: "include"`. That is also the protection: `Lax` blocks
+cross-site non-GET requests, every body is JSON (so it is preflighted and fails CORS from a
+foreign origin), and `Lax`'s top-level-GET carve-out only reaches read-only endpoints. No
+CSRF token.
+
+> Browse the app at **`http://localhost:3000`**, never `http://127.0.0.1:3000`. Against an
+> API on `localhost:8000` that is cross-*site*, so the browser drops the cookie while CORS
+> still succeeds — auth breaks with no error anywhere. `127.0.0.1:3000` is deliberately
+> absent from the API's origin list so the failure is loud instead of silent.
 
 ## Environment
 

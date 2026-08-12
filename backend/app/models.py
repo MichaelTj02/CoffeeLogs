@@ -24,9 +24,10 @@ from app.database import Base
 UTC_DATETIME = DateTime().with_variant(mysql.DATETIME(fsp=6), "mysql")
 
 
-def _utcnow() -> datetime:
+def utcnow() -> datetime:
     # MySQL DATETIME stores no offset, so the value goes in naive; UTCAwareOut in schemas.py
-    # re-attaches UTC on the way out.
+    # re-attaches UTC on the way out. Anything compared against a loaded datetime must use
+    # this too — an aware datetime.now(UTC) raises TypeError against a naive column value.
     return datetime.now(UTC).replace(tzinfo=None)
 
 
@@ -34,10 +35,54 @@ def _today() -> date:
     return datetime.now(UTC).date()
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False, default=utcnow)
+
+    beans: Mapped[list["Bean"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    sessions: Mapped[list["UserSession"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    def __repr__(self) -> str:
+        return f"<User id={self.id} email={self.email!r}>"
+
+
+# Not `Session`: that name is sqlalchemy.orm.Session everywhere else in this codebase.
+class UserSession(Base):
+    __tablename__ = "sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # sha256 of the raw token, so a database dump holds no usable credential. sha256 rather
+    # than argon2 because the token is 256 bits of `secrets` entropy — nothing to guess.
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="sessions")
+
+    def __repr__(self) -> str:
+        return f"<UserSession id={self.id} user_id={self.user_id}>"
+
+
 class Bean(Base):
     __tablename__ = "beans"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     # Every String needs an explicit length or MySQL raises "VARCHAR requires a length".
     name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
     roaster: Mapped[str] = mapped_column(String(120), nullable=False)
@@ -50,8 +95,9 @@ class Bean(Base):
     )
     # No server_default: MySQL requires CURRENT_TIMESTAMP's precision to match the column's,
     # so `DATETIME(6) DEFAULT now()` is error 1067.
-    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False, default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False, default=utcnow)
 
+    user: Mapped[User] = relationship(back_populates="beans")
     brew_methods: Mapped[list["BrewMethod"]] = relationship(
         back_populates="bean",
         cascade="all, delete-orphan",
@@ -75,7 +121,7 @@ class BrewMethod(Base):
         ForeignKey("beans.id", ondelete="CASCADE"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(50), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False, default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTC_DATETIME, nullable=False, default=utcnow)
 
     bean: Mapped[Bean] = relationship(back_populates="brew_methods")
     # brewed_at is a date, so several attempts a day tie: id breaks it to newest-first.

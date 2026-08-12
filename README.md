@@ -3,7 +3,8 @@
 Track the coffee beans you buy, the methods you brew them with, and how every attempt
 turned out. Log a bag of Ethiopia Yirgacheffe, add a V60 and an AeroPress to it, then
 record each brew's dose, yield, and rating so you can watch a recipe get dialled in over
-time.
+time. It's an account-based app: you sign in with an email and a password, and every bean,
+method, and attempt belongs to the account that created it.
 
 **Stack** — FastAPI · SQLAlchemy 2.0 · Pydantic v2 · MySQL 8 · Next.js 14.2 (pages
 router) · pytest + Jest · GitHub Actions.
@@ -44,7 +45,8 @@ Create `backend/.env` (gitignored):
 DATABASE_URL=mysql+pymysql://coffeelogs:your-password@localhost:3306/coffeelogs?charset=utf8mb4
 ```
 
-Then create the tables — deliberately explicit, the app never runs DDL on startup:
+Then create the tables — `users`, `sessions`, and the three coffee tables. Deliberately
+explicit; the app never runs DDL on startup:
 
 ```powershell
 python -m app.init_db
@@ -77,6 +79,11 @@ an elevated shell (`Start-Service MySQL80`).
 | Frontend | http://localhost:3000 |
 | API | http://localhost:8000 |
 | API docs | http://localhost:8000/docs |
+
+Open the frontend at `localhost`, not `127.0.0.1` — to a browser those are different sites,
+and the session cookie won't be sent. On first run the app sends you to the sign-in page:
+follow "Create one" to register, which logs you straight in. Everything you add from there
+is visible only to that account.
 
 To run them by hand instead:
 

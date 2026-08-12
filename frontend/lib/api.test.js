@@ -4,6 +4,10 @@ import {
   deleteBean,
   getBean,
   getBeans,
+  getMe,
+  login,
+  logout,
+  register,
   setFavourite,
 } from "@/lib/api";
 
@@ -108,6 +112,102 @@ describe("request", () => {
       "Could not reach the API. Is the backend running on port 8000?"
     );
   });
+
+  it("sends credentials on every request so the session cookie travels", async () => {
+    global.fetch.mockResolvedValue(jsonResponse([]));
+
+    await getBeans();
+    await deleteBean(3);
+
+    for (const call of global.fetch.mock.calls) {
+      expect(call[1]).toEqual(expect.objectContaining({ credentials: "include" }));
+    }
+  });
+
+  it("dispatches coffeelogs:unauthorized on 401 and still throws", async () => {
+    global.fetch.mockResolvedValue(
+      jsonResponse({ detail: "Not authenticated" }, { status: 401, statusText: "Unauthorized" })
+    );
+    const listener = jest.fn();
+    window.addEventListener("coffeelogs:unauthorized", listener);
+
+    await expect(getBeans()).rejects.toMatchObject({
+      message: "Not authenticated",
+      status: 401,
+    });
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    window.removeEventListener("coffeelogs:unauthorized", listener);
+  });
+
+  it("does not dispatch coffeelogs:unauthorized for other errors", async () => {
+    global.fetch.mockResolvedValue(
+      jsonResponse({ detail: "Bean not found" }, { status: 404, statusText: "Not Found" })
+    );
+    const listener = jest.fn();
+    window.addEventListener("coffeelogs:unauthorized", listener);
+
+    await expect(getBean(9)).rejects.toThrow("Bean not found");
+    expect(listener).not.toHaveBeenCalled();
+
+    window.removeEventListener("coffeelogs:unauthorized", listener);
+  });
+});
+
+describe("auth helpers", () => {
+  it("register posts the credentials to /auth/register", async () => {
+    global.fetch.mockResolvedValue(
+      jsonResponse({ id: 1, email: "a@b.com" }, { status: 201 })
+    );
+
+    await expect(register("a@b.com", "hunter22")).resolves.toEqual({
+      id: 1,
+      email: "a@b.com",
+    });
+    expect(global.fetch).toHaveBeenCalledWith(`${API_URL}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email: "a@b.com", password: "hunter22" }),
+    });
+  });
+
+  it("login posts the credentials to /auth/login", async () => {
+    global.fetch.mockResolvedValue(jsonResponse({ id: 1, email: "a@b.com" }));
+
+    await login("a@b.com", "hunter22");
+
+    expect(global.fetch).toHaveBeenCalledWith(`${API_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email: "a@b.com", password: "hunter22" }),
+    });
+  });
+
+  it("logout posts without a body and resolves to null on 204", async () => {
+    global.fetch.mockResolvedValue(
+      jsonResponse(null, { status: 204, statusText: "No Content" })
+    );
+
+    await expect(logout()).resolves.toBeNull();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      `${API_URL}/auth/logout`,
+      expect.objectContaining({ method: "POST", credentials: "include" })
+    );
+    expect(global.fetch.mock.calls[0][1]).not.toHaveProperty("body");
+  });
+
+  it("getMe reads /auth/me without a method", async () => {
+    global.fetch.mockResolvedValue(jsonResponse({ id: 1, email: "a@b.com" }));
+
+    await expect(getMe()).resolves.toEqual({ id: 1, email: "a@b.com" });
+    expect(global.fetch).toHaveBeenCalledWith(`${API_URL}/auth/me`, {
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    });
+  });
 });
 
 describe("getBeans", () => {
@@ -151,6 +251,7 @@ describe("write helpers", () => {
     expect(global.fetch).toHaveBeenCalledWith(`${API_URL}/beans`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ name: "Kenya AA", roaster: "Square Mile" }),
     });
   });
