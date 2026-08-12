@@ -15,6 +15,8 @@ def list_beans(
         if sort == "recent"
         else (Bean.is_favourite.desc(), Bean.created_at.desc(), Bean.id.desc())
     )
+    # brew_methods is not in BeanRead, but method_count reads it, so without the selectinload
+    # serializing the list lazy-loads once per bean.
     stmt = select(Bean).options(selectinload(Bean.brew_methods)).order_by(*order)
     if limit is not None:
         stmt = stmt.limit(limit)

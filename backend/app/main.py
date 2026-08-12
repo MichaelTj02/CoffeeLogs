@@ -13,14 +13,14 @@ app = FastAPI(
     description="Track coffee beans, the methods you brew them with, and every attempt.",
 )
 
-# PATCH and DELETE are preflighted, so leaving them out of allow_methods breaks the star
-# toggle and delete while GETs keep working.
 origins = [
     origin.strip()
     for origin in os.getenv("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",")
     if origin.strip()
 ]
 
+# PATCH and DELETE are preflighted, so leaving them out of allow_methods breaks the star
+# toggle and delete while GETs keep working.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
