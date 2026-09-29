@@ -7,7 +7,7 @@ import {
   setFavourite,
 } from "@/lib/api";
 
-const API_URL = "http://localhost:8000";
+const API_URL = "/api";
 
 function jsonResponse(body, { status = 200, statusText = "OK" } = {}) {
   return {
@@ -104,9 +104,7 @@ describe("request", () => {
   it("reports an unreachable API on network failure", async () => {
     global.fetch.mockRejectedValue(new TypeError("Failed to fetch"));
 
-    await expect(getBeans()).rejects.toThrow(
-      "Could not reach the API. Is the backend running on port 8000?"
-    );
+    await expect(getBeans()).rejects.toThrow("Could not reach the API.");
   });
 });
 

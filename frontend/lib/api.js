@@ -1,5 +1,5 @@
 // NEXT_PUBLIC_ is required to reach browser code, and is inlined at build time, not runtime.
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 // FastAPI's `detail` is a string for HTTPException but an array of objects for 422s.
 function messageFromDetail(detail, fallback) {
@@ -19,7 +19,7 @@ async function request(path, options = {}) {
       ...options,
     });
   } catch {
-    throw new Error("Could not reach the API. Is the backend running on port 8000?");
+    throw new Error("Could not reach the API.");
   }
 
   if (!res.ok) {

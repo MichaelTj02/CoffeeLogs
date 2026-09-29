@@ -40,3 +40,24 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: docker compose up -d --build --wait
+      # The test suite runs on SQLite, so this is the only place the MySQL-only schema rules
+      # (VARCHAR lengths, DATETIME(6)) are exercised.
+      - run: docker compose run --rm backend python -m app.init_db
+      - run: curl --fail --silent --show-error http://localhost:8000/health
+      - run: curl --fail --silent --show-error http://localhost:3000/
+      - name: Round-trip a bean through the frontend proxy
+        run: |
+          id=$(curl --fail --silent --show-error -X POST http://localhost:3000/api/beans \
+            -H "Content-Type: application/json" \
+            -d '{"name":"CI Bean","roaster":"CI"}' | jq -e '.id')
+          curl --fail --silent --show-error "http://localhost:3000/api/beans/$id" \
+            | jq -e '.name == "CI Bean"'
+      - if: failure()
+        run: docker compose logs
