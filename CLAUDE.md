@@ -11,13 +11,17 @@ testing and CI/CD pipeline CineScope was missing, and swaps PHP for Python.
 | Backend | FastAPI + SQLAlchemy 2.0 ORM + Pydantic v2 |
 | Database | MySQL 8 (InnoDB, utf8mb4), driver `PyMySQL` |
 | Frontend | Next.js 14.2 (**pages** router), plain CSS, no component library |
-| CI | GitHub Actions — lint + test + build, no Docker |
+| Containers | Docker Compose — `db` (MySQL 8.4), `backend`, `frontend` |
+| CI | GitHub Actions — lint + test + build, plus a `docker` job that smoke-tests the Compose stack against MySQL |
 
 ## Repo layout
 
 ```
 CoffeeLogs/
+├─ compose.yaml        db + backend + frontend
+├─ .env.example        MySQL passwords for Compose; copy to .env
 ├─ backend/            FastAPI app — own toolchain, rooted here for ruff/pytest
+│  ├─ Dockerfile, .dockerignore
 │  ├─ app/
 │  │  ├─ database.py   engine, Base, get_db
 │  │  ├─ models.py     SQLAlchemy models
@@ -29,8 +33,9 @@ CoffeeLogs/
 │  ├─ requirements.txt
 │  └─ pyproject.toml   ruff + pytest config
 └─ frontend/           Next.js app — own toolchain, own lockfile
+   ├─ Dockerfile, .dockerignore
    ├─ components/      Navbar, BeanCard, StarButton
-   ├─ lib/api.js       single fetch wrapper
+   ├─ lib/api.js       single fetch wrapper, calls same-origin /api
    ├─ pages/           _app.js, index.js, logs.js, beans/[id].js
    └─ styles/globals.css
 ```
@@ -151,12 +156,39 @@ Keep them to one or two lines. If it needs a paragraph, it belongs in documentat
   ordering. The favourite toggle is the deliberate exception — it updates optimistically so
   the star responds instantly.
 
+### Docker rules
+
+- **The browser only talks to the frontend's origin.** `api.js` calls `/api/...`, and
+  `next.config.js` rewrites it to `BACKEND_URL`. This is what makes the app work from any
+  device without CORS or a baked-in host — don't reintroduce an absolute API URL.
+- **Rewrites are baked in at `next build`.** `BACKEND_URL` must be a build `ARG` (Compose
+  passes `http://backend:8000`); setting it only at container runtime does nothing.
+- **Both servers bind `0.0.0.0`.** uvicorn via `--host`; the Next runner via
+  `HOSTNAME=0.0.0.0`, because Docker sets `HOSTNAME` to the container id and standalone
+  `server.js` binds to it.
+- **`backend/.env` never enters an image** — it's in `.dockerignore`. It points at
+  `localhost:3306` and holds a password; Compose injects `DATABASE_URL` instead.
+- **`init_db` stays a one-off** `docker compose run --rm backend python -m app.init_db`,
+  never in `CMD`.
+- The frontend has no `public/` directory, so its Dockerfile doesn't copy one (copying a
+  missing path fails the build). Add the `COPY` if you create it, or its files won't be served.
+- Only the frontend is published on all interfaces; the backend is bound to `127.0.0.1`
+  (for `/docs`) and MySQL isn't published at all.
+- **`docker compose down -v` deletes the `mysql-data` volume**, i.e. all data.
+
 ## Environment
 
+- **Docker is the cross-platform default.** With Compose, nothing below is needed — no
+  local Python, Node or MySQL. Root `.env` (from `.env.example`) holds only the MySQL
+  passwords; it is separate from `backend/.env`, which native development uses.
 - **Node is 18.17.0** — *exactly* Next 14.2's minimum. Next 15 requires ≥18.18.0, so never
   run `create-next-app@latest`. `next` and `eslint` are pinned without carets; ESLint must
-  stay on 8.x because `eslint-config-next@14.2` targets the `.eslintrc` format.
-- **Use `py -3.12`, not bare `python`** — `python` on PATH is 3.10.0 here, while the `py`
+  stay on 8.x because `eslint-config-next@14.2` targets the `.eslintrc` format. The
+  frontend image and CI use the same `18.17.0`.
+
+Native development on **Windows** additionally:
+
+- **Use `py -3.12`, not bare `python`** — `python` on PATH is 3.10.0 there, while the `py`
   launcher defaults to 3.12.
 - **MySQL must be running** (`Get-Service MySQL80`). The app has no SQLite fallback; only
   the test suite uses SQLite, via a dependency override.
@@ -165,15 +197,24 @@ Keep them to one or two lines. If it needs a paragraph, it belongs in documentat
 
 ## Commands
 
+```bash
+# Docker (from the repo root)
+cp .env.example .env                                   # once; set passwords
+docker compose up -d --build                           # frontend http://localhost:3000
+docker compose run --rm backend python -m app.init_db  # once per database
+docker compose logs -f backend
+docker compose down                                    # keeps data; -v deletes it
+```
+
 ```powershell
-# Backend (from backend/)
+# Native backend (from backend/)
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 python -m app.init_db                              # create tables
 uvicorn app.main:app --reload --port 8000          # docs at /docs
 
-# Frontend (from frontend/)
+# Native frontend (from frontend/)
 npm install
 npm run dev                                        # http://localhost:3000
 ```
