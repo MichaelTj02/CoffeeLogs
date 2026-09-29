@@ -57,8 +57,11 @@ cd frontend
 npm install
 ```
 
-No env file is needed locally; the API client defaults to `http://localhost:8000`. To point
-it elsewhere, create `frontend/.env.local` with `NEXT_PUBLIC_API_URL=<url>`.
+No env file is needed locally. The browser calls `/api/...` on the frontend's own origin,
+and Next.js proxies it to `http://localhost:8000`. To proxy somewhere else, set
+`BACKEND_URL` before `next build` / `next dev` (it is baked in at build time); to skip the
+proxy and call an API directly, create `frontend/.env.local` with
+`NEXT_PUBLIC_API_URL=<url>`.
 
 ## Running
 
