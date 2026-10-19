@@ -15,7 +15,7 @@ services:
     healthcheck:
       # TCP rather than the socket: the image's first-boot init server runs with networking
       # off, so this stays unhealthy until the real server is up.
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -48,6 +48,11 @@ services:
         condition: service_healthy
     ports:
       - "3000:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
 volumes:
   mysql-data:

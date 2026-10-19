@@ -8,4 +8,6 @@ module.exports = createJestConfig({
   // SWC rewrites the jsconfig `@/*` alias in import statements, but not in the string
   // argument to jest.mock, which resolves through Jest's own mapper.
   moduleNameMapper: { "^@/(.*)$": "<rootDir>/$1" },
+  // The standalone build copies package.json into .next/, which collides in Jest's haste map.
+  modulePathIgnorePatterns: ["<rootDir>/.next/"],
 });
