@@ -13,10 +13,17 @@ router) · pytest + Jest · Docker Compose · GitHub Actions.
 The default way to run it, on any OS. You only need **Docker** with Compose v2 (Docker
 Desktop on macOS/Windows, Docker Engine on Linux) — no local Python, Node or MySQL.
 
-One-time, from a fresh clone:
+One-time, from a fresh clone, create `.env` in the repo root (it's gitignored). Avoid
+`@ : / ? #` in `MYSQL_PASSWORD`, since it goes into a URL:
+
+```
+MYSQL_PASSWORD=pick-a-password
+MYSQL_ROOT_PASSWORD=pick-another-one
+```
+
+Then:
 
 ```bash
-cp .env.example .env    # then set real passwords; avoid @ : / ? # (they go into a URL)
 docker compose up -d --build
 docker compose run --rm backend python -m app.init_db
 ```
