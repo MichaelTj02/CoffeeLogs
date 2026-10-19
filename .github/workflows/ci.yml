@@ -43,9 +43,11 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
+    env:
+      MYSQL_PASSWORD: ci-password
+      MYSQL_ROOT_PASSWORD: ci-root-password
     steps:
       - uses: actions/checkout@v4
-      - run: cp .env.example .env
       - run: docker compose up -d --build --wait
       # The test suite runs on SQLite, so this is the only place the MySQL-only schema rules
       # (VARCHAR lengths, DATETIME(6)) are exercised.

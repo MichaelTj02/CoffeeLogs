@@ -19,7 +19,6 @@ testing and CI/CD pipeline CineScope was missing, and swaps PHP for Python.
 ```
 CoffeeLogs/
 ├─ compose.yaml        db + backend + frontend
-├─ .env.example        MySQL passwords for Compose; copy to .env
 ├─ backend/            FastAPI app — own toolchain, rooted here for ruff/pytest
 │  ├─ Dockerfile, .dockerignore
 │  ├─ app/
@@ -179,8 +178,10 @@ Keep them to one or two lines. If it needs a paragraph, it belongs in documentat
 ## Environment
 
 - **Docker is the cross-platform default.** With Compose, nothing below is needed — no
-  local Python, Node or MySQL. Root `.env` (from `.env.example`) holds only the MySQL
-  passwords; it is separate from `backend/.env`, which native development uses.
+  local Python, Node or MySQL. Root `.env` (gitignored, created by hand) holds only
+  `MYSQL_PASSWORD` and `MYSQL_ROOT_PASSWORD`; it is separate from `backend/.env`, which
+  native development uses. `MYSQL_PASSWORD` is embedded in `DATABASE_URL`, so it must
+  avoid `@ : / ? #`.
 - **Node is 18.17.0** — *exactly* Next 14.2's minimum. Next 15 requires ≥18.18.0, so never
   run `create-next-app@latest`. `next` and `eslint` are pinned without carets; ESLint must
   stay on 8.x because `eslint-config-next@14.2` targets the `.eslintrc` format. The
@@ -199,7 +200,7 @@ Native development on **Windows** additionally:
 
 ```bash
 # Docker (from the repo root)
-cp .env.example .env                                   # once; set passwords
+#   once: create .env with MYSQL_PASSWORD and MYSQL_ROOT_PASSWORD
 docker compose up -d --build                           # frontend http://localhost:3000
 docker compose run --rm backend python -m app.init_db  # once per database
 docker compose logs -f backend
