@@ -6,8 +6,7 @@ RUN npm ci
 FROM node:18.17.0-slim AS build
 WORKDIR /app
 ARG BACKEND_URL=http://backend:8000
-ENV BACKEND_URL=$BACKEND_URL \
-    NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
